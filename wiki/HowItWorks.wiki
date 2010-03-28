@@ -1,0 +1,14 @@
+#summary How does AppStart do its magic ?
+
+= How AppStart works =
+
+At the core of AppStart, a child process is spawned from the launch of the AppStart jar file. Basically, everything boils down to: 
+{{{
+Runtime.getRuntime().exec(<java process with parameters>)
+}}}
+of course, there is more that that:
+ * The position of the "java" launcher is taken from the system property ${java.home}. So, the default JRE is used to run the child process.
+ * The folder in which resides the start.jar file is called the "Application folder"
+ * A file named appstart.properties must be present in the application folder. Inside it there must be the reference to the main class to launch and eventual JVM options to use.
+ * if you have a subfolder called "lib", by default every folder and jar file in it will be added to the classpath. You can configure the position of the lib folder in the appstart.properties
+ * If a file called "splash.img" is found in the application folder, it is used as a splash screen of the child java process. This feature requires the use of Java 6
