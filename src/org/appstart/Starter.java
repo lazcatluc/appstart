@@ -23,7 +23,10 @@
  */
 package org.appstart;
 
+import java.awt.GraphicsEnvironment;
 import java.awt.SplashScreen;
+import java.awt.Toolkit;
+import java.beans.Beans;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -43,11 +46,13 @@ import java.util.logging.Logger;
  * @author marco
  */
 public class Starter {
-    public static final String DEFAULT_SPLASH_IMG = "splash.img";
-    static Logger log = Logger.getLogger("AppStart");
 
+    static Logger log = Logger.getLogger("AppStart");
+    public static final String DEFAULT_SPLASH_IMG = "splash.img";
     public static final String APPSTART_MAIN_CLASS = "app.main.class";
     public static final String APP_VM_OPTIONS = "app.vm.options";
+    public static final String APP_CLASS_PATH = "app.class.path";
+    public static final String APP_LIBS_DIR = "app.libs.dir";
     public static final String APPSTART_FILE = "appstart.properties";
     public static final String JAVA_PATH = "bin" + File.separator + "java";
     /**
@@ -60,7 +65,7 @@ public class Starter {
      */
     public static void main(String[] args) throws Exception {
         if (!Boolean.getBoolean("appstart.verbose")) {
-            log.setLevel(Level.OFF);
+            log.setLevel(Level.WARNING);
         }
         File java = new File(System.getProperty("java.home"),
                 JAVA_PATH);
@@ -76,32 +81,46 @@ public class Starter {
         }
         log.info("appstart dir: " + appstartDir);
 
-        Properties launchProps = findLaunchProperties(appstartDir, null);
-        // searching for appstart.properties in current directory
-        launchProps = findLaunchProperties(new File("."), launchProps);
+        Properties launchProps = findLaunchProperties(appstartDir, new Properties());
+        String appstartPath = System.getProperty(APPSTART_FILE);
+        if (appstartPath != null) {
+            try {
+                InputStream in = new FileInputStream(appstartPath);
+                try {
+                    launchProps.load(in);
+                    in.close();
+                } finally {
+                    in.close();
+                }
+            } catch (IOException ioe) {
+                log.severe("Cannot load appstart config in " + appstartPath);
+            }
+        }
+
         if (launchProps == null) {
-            javax.swing.JOptionPane.showMessageDialog(
-                    null,
-                    "Missing config file " + APPSTART_FILE,
-                    "Error starting application",
-                    javax.swing.JOptionPane.ERROR_MESSAGE);
+            log.severe("missing config file " + APPSTART_FILE);
+            if (!GraphicsEnvironment.isHeadless()) {
+                javax.swing.JOptionPane.showMessageDialog(
+                        null,
+                        "Missing config file " + APPSTART_FILE,
+                        "Error starting application",
+                        javax.swing.JOptionPane.ERROR_MESSAGE);
+            }
             System.exit(1);
         }
 
         // build the class path
         String classpath = new File(
                 appstartDir,
-                launchProps.getProperty("app.class.path", "")).
-                getPath().concat(File.pathSeparator);
-        
+                launchProps.getProperty("app.class.path", "")).getPath().concat(File.pathSeparator);
+
         File libsDir = new File(appstartDir, launchProps.getProperty(
                 "app.libs.dir", "lib"));
         log.info("libs dir: " + libsDir);
         if (libsDir.isDirectory()) {
             File[] libs = libsDir.listFiles();
             for (File lib : libs) {
-                classpath = classpath.
-                        concat(lib.getAbsolutePath()).
+                classpath = classpath.concat(lib.getAbsolutePath()).
                         concat(File.pathSeparator);
             }
         }
@@ -126,25 +145,28 @@ public class Starter {
                 APPSTART_MAIN_CLASS);
         log.info("main class = " + mainClass);
         if (mainClass == null) {
-            javax.swing.JOptionPane.showMessageDialog(
-                    null,
-                    "Missing config entry " + APPSTART_MAIN_CLASS,
-                    "Error starting application",
-                    javax.swing.JOptionPane.ERROR_MESSAGE);
+            log.severe("Missing " + APPSTART_MAIN_CLASS + " config entry");
+            if (!GraphicsEnvironment.isHeadless()) {
+                javax.swing.JOptionPane.showMessageDialog(
+                        null,
+                        "Missing config entry " + APPSTART_MAIN_CLASS,
+                        "Error starting application",
+                        javax.swing.JOptionPane.ERROR_MESSAGE);
+            }
             System.exit(1);
         }
 
         // flag to follow child process output
         Boolean follow = Boolean.parseBoolean(launchProps.getProperty(
                 "app.follow", "false"));
-        File splash = new File(appstartDir, DEFAULT_SPLASH_IMG);
+        File splashFile = new File(appstartDir, DEFAULT_SPLASH_IMG);
 
         ArrayList<String> cmd = new ArrayList<String>();
         cmd.add(java.getAbsolutePath());
         cmd.addAll(vmOptions);
-        if (splash.isFile()) {
-            log.info("splash file: " + splash.getAbsolutePath());
-            cmd.add("-splash:" + splash.getAbsolutePath());
+        if (splashFile.isFile()) {
+            log.info("splash file: " + splashFile.getAbsolutePath());
+            cmd.add("-splash:" + splashFile.getAbsolutePath());
         }
         cmd.addAll(systemProps);
         cmd.add("-cp");
@@ -159,7 +181,10 @@ public class Starter {
         pb.redirectErrorStream(true);
         child = pb.start();
 
-        SplashScreen.getSplashScreen().close();
+        SplashScreen splash = SplashScreen.getSplashScreen();
+        if (splash != null) {
+            splash.close();
+        }
         if (follow) {
             log.info("starting follower thread");
             new FollowerThread().start();
@@ -170,9 +195,6 @@ public class Starter {
     }
 
     private static Properties findLaunchProperties(File file, Properties launchProps) throws IOException {
-        if (file.isFile()) {
-            file = file.getParentFile();
-        }
 //        System.out.println("searching launch.properties in " + file);
         File propFile = new File(file, APPSTART_FILE);
         if (propFile.isFile()) {
