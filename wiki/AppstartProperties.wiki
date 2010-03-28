@@ -2,14 +2,16 @@
 
 = Appstart properties =
 
-|| *Property* || *Description* || *Default value*
-|| app.main.class || a fully-qualified class. *Required* || null
-|| app.libs.dir || the directory where appstart can find the dependent jars || ""
-|| app.vm.options || a list of VM options || ""
-|| app.class.path || additional class paths || ""
-|| app.follow || set to true to follow the application output to console. Useful for debugging purposes || false
+|| *Property* || *Description* || *Default value* ||
+|| app.main.class || a fully-qualified class. *Required* || null ||
+|| app.libs.dir || the directory where appstart can find the dependent jars || "" ||
+|| app.vm.options || a list of VM options || "" ||
+|| app.class.path || additional class paths || "" ||
+|| app.follow || set to true to follow the application output to console. Useful for debugging purposes || false ||
 
-Each entry in the appstart.properties file is included as a system property in the started application, some examples:
+== System properties ==
+
+Each entry in the appstart.properties file is included as a system property in the started application, so you can specify other entries such as:
  * *java.util.logging.config.file* to configure the logging configuration, 
  * *http.proxyHost* to configure the HTTP proxy.
  * *java.rmi.codebase* to configure the RMI codebase URL.
